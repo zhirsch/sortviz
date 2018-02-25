@@ -1,0 +1,285 @@
+<html>
+  <head>
+    <script>
+      POINT_RADIUS = 3
+      INTERVAL = 0
+
+      ALGORITHMS = [
+        bubbleSort,
+        insertionSort,
+        quickSort,
+        heapSort,
+        // bogoSort,
+        async function(arr) { await radixSort(arr, 2); },
+        async function(arr) { await radixSort(arr, 10); },
+      ]
+
+      function setUp(num) {
+        var canvas = document.getElementById("c");
+        canvas.width = document.body.clientWidth - 30;
+        canvas.height = document.body.clientHeight - 30;
+
+        arr = []
+        for (var x = 1; x <= num; x++) {
+          arr.push(x);
+        }
+        
+        doSort(arr);
+      }
+
+      async function doSort(arr) {
+        for (var i = 0; i < ALGORITHMS.length; i++) {
+          await shuffle(arr);
+          await ALGORITHMS[i](arr);
+        }
+      }
+
+      async function bubbleSort(arr) {
+        for (var i = 0; i < arr.length; i++) {
+          for (var j = 0; j < arr.length - i - 1; j++) {
+            if (arr[j] > arr[j + 1]) {
+              swap(arr, j, j + 1);
+            }
+          }
+          await draw(arr, "bubble");
+        }
+      }
+
+      async function insertionSort(arr) {
+        for (var i = 0; i < arr.length; i++) {
+          var tmp = arr[i];
+          var j = i - 1;
+          while (j >= 0 && arr[j] > tmp) {
+            arr[j + 1] = arr[j];
+            j--;
+          }
+          arr[j + 1] = tmp;
+          await draw(arr, "insertion");
+        }
+      }
+      
+      async function partition(arr, left, right) {
+        var pivot = arr[Math.floor((right + left) / 2)];
+        var i = left;
+        var j = right;
+        
+        while (i <= j) {
+          while (arr[i] < pivot) {
+            i++;
+          }
+          while (arr[j] > pivot) {
+            j--;
+          }
+          if (i <= j) {
+            swap(arr, i, j);
+            i++;
+            j--;
+          }
+          await draw(arr, "quicksort");
+        }
+        return i;
+      }
+      
+      async function quickSort(arr, left, right) {
+        var index;
+        if (arr.length > 1) {
+          left = typeof left != "number" ? 0 : left;
+          right = typeof right != "number" ? arr.length - 1 : right;
+          index = await partition(arr, left, right);
+          if (left < index - 1) {
+            await quickSort(arr, left, index - 1);
+          }
+          if (index < right) {
+            await quickSort(arr, index, right);
+          }
+        }
+      }
+
+      async function heap_root(arr, i, array_length) {
+        var left = 2 * i + 1;
+        var right = 2 * i + 2;
+        var max = i;
+        if (left < array_length && arr[left] > arr[max]) {
+          max = left;
+        }
+        if (right < array_length && arr[right] > arr[max]) {
+          max = right;
+        }
+        if (max != i) {
+          swap(arr, i, max);
+          await heap_root(arr, max, array_length);
+        }
+      }
+
+      async function heapSort(arr) {
+        var array_length = arr.length;
+        for (var i = Math.floor(array_length / 2); i >= 0; i -= 1) {
+          await heap_root(arr, i, array_length);
+          await draw(arr, "heapsort");
+        }
+        for (i = arr.length - 1; i > 0; i--) {
+          swap(arr, 0, i);
+          array_length--;
+          await heap_root(arr, 0, array_length);
+          await draw(arr, "heapsort");
+        }
+      }
+
+      async function bogoSort(arr) {
+        var count = 0;
+        while (true) {
+          shuffle(arr);
+          await draw(arr, "bogo " + count);
+          sorted = true;
+          for (var i = 1; i < arr.length; i++) {
+            if (arr[i - 1] > arr[i]) {
+              sorted = false;
+              break;
+            }
+          }
+          if (sorted) {
+            break;
+          }
+          count++;
+        }
+      }
+
+      async function countingSort(arr, digit, radix) {
+        B = []
+        for (var i = 0; i < arr.length; i++) {
+          B.push(arr[i]);
+        }
+        C = []
+        for (var i = 0; i < radix; i++) {
+          C.push(0);
+        }
+
+        for (var i = 0; i < arr.length; i++) {
+          C[parseInt(arr[i] / Math.pow(radix, digit)) % radix]++;
+        }
+        for (var j = 1; j < radix; j++) {
+          C[j] = C[j] + C[j - 1];
+        }
+        for (var m = arr.length - 1; m >= 0; m--) {
+          digit_of_Ai = parseInt(arr[m] / Math.pow(radix, digit)) % radix;
+          C[digit_of_Ai]--;
+          B[C[digit_of_Ai]] = arr[m];
+          await draw(B, "radix " + radix);
+        }
+        for (var i = 0; i < arr.length; i++) {
+          arr[i] = B[i];
+        }
+      }
+
+      async function radixSort(arr, radix) {
+        max = Math.max(...arr);
+        digit = 0;
+        while (parseInt(max / Math.pow(radix, digit)) > 0) {
+          await countingSort(arr, digit, radix);
+          digit++;
+        }
+      }
+
+      function swap(arr, i, j) {
+        var tmp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = tmp;
+      }
+
+      function delay() {
+        return new Promise(resolve => setTimeout(() => resolve(), INTERVAL));
+      }
+
+      async function draw(arr, description) {
+        var canvas = document.getElementById("c");
+        var ctx = canvas.getContext("2d");
+
+        ctx.clearRect(0, 0, getSide(canvas), getSide(canvas));
+        ctx.font = "30px Arial";
+        ctx.fillStyle = "black";
+        ctx.fillText(description, 10, 40);
+        drawAxes(canvas, ctx, getRadius(canvas));
+
+        for (var i = 0; i < arr.length; i++) {
+          pos = 2 * Math.PI * (i / arr.length);
+          hsl = makeHsl(i / arr.length, 0.1);
+          drawPoint(canvas, ctx, pos, getRadius(canvas), hsl);
+        }
+
+        for (var i = 0; i < arr.length; i++) {
+          pos = 2 * Math.PI * (i / arr.length);
+          if (i == arr[i] - 1) {
+            expectedPos = pos;
+            angle = 0.0;
+          } else {
+            expectedPos = 2 * Math.PI * ((arr[i] - 1) / arr.length);
+            angle = Math.acos(dot(pos, expectedPos) / (len(pos) * len(expectedPos)));
+          }
+          radius = getRadius(canvas) * (Math.PI - angle) / Math.PI;
+          // console.log("%d is at %f expected at %f with radius %f (angle %f)", i, pos, expectedPos, radius, angle);
+          hsl = makeHsl((arr[i] - 1) / arr.length, 1);
+          drawPoint(canvas, ctx, pos, radius, hsl);
+        }
+
+        await delay();
+      }
+
+      function dot(pos1, pos2) {
+        return Math.cos(pos1) * Math.cos(pos2) + Math.sin(pos1) * Math.sin(pos2);
+      }
+
+      function len(pos) {
+        return Math.sqrt(Math.pow(Math.cos(pos), 2) + Math.pow(Math.sin(pos), 2));
+      }
+
+      function drawAxes(canvas, ctx, radius) {
+        ctx.beginPath();
+        ctx.strokeStyle = "#ccc";
+        ctx.arc(getSide(canvas) / 2, getSide(canvas) / 2, radius, 0, 2 * Math.PI);
+        ctx.moveTo(0, getSide(canvas) / 2);
+        ctx.lineTo(getSide(canvas), getSide(canvas) / 2);
+        ctx.moveTo(getSide(canvas) / 2, 0);
+        ctx.lineTo(getSide(canvas) / 2, getSide(canvas));
+        ctx.stroke();
+      }
+
+      function drawPoint(canvas, ctx, pos, radius, style) {
+        ctx.beginPath();
+        ctx.fillStyle = style;
+        ctx.arc(radiansToX(canvas, pos, radius), radiansToY(canvas, pos, radius), POINT_RADIUS, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      function radiansToX(canvas, pos, radius) {
+        return Math.cos(pos) * radius + getSide(canvas) / 2;
+      }
+
+      function radiansToY(canvas, pos, radius) {
+        return Math.sin(pos) * radius + getSide(canvas) / 2;
+      }
+
+      function makeHsl(percent, alpha) {
+        return "hsla(" + (360 * percent) + ", 100%, 50%, " + alpha + ")";
+      }
+
+      function getSide(canvas) {
+        return Math.min(canvas.width, canvas.height);
+      }
+
+      function getRadius(canvas) {
+        return 0.9 * getSide(canvas) / 2;
+      }
+   
+      async function shuffle(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          swap(arr, i, j);
+        }
+        await draw(arr, "shuffle");
+      }
+    </script>
+  </head>
+  <body onload="setUp(1000)">
+    <canvas id="c"></canvas>
+  </body>
+</html>
